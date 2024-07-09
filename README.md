@@ -1,4 +1,4 @@
-# symcla: symbiont genome classifier
+# symcla: symbiont classifier
 
 ## 💾 Installation
 
@@ -94,9 +94,9 @@ Expected results from the test data:
 
 ### 🧐 Interpretation of results:
 - `completeness_UNI56`: The percentage of 56 universal bacterial and archaeal marker genes found in the genome. We do not advise to trust any results <50%. Confidence in symbiont prediction increases with UNI56 completeness.
-- `features_gt01`: Number of features found with a bitscore greater than 0. Confidence in symbiont prediction increases with more featured found.
-- `features_ge20`: Number of features found with a bitscore greater or equal than 20. Confidence in symbiont prediction increases with more featured found.
-- `features_ge100`: Number of features found with a bitscore greater or equal than 100. Confidence in symbiont prediction increases with more featured found.
+- `features_gt01`: Number of features found with a bitscore greater than 0. Confidence in symbiont prediction increases with more features found.
+- `features_ge20`: Number of features found with a bitscore greater or equal than 20. Confidence in symbiont prediction increases with more features found.
+- `features_ge100`: Number of features found with a bitscore greater or equal than 100. Confidence in symbiont prediction increases with more features found.
 - `symcla_score`: after adjusting the classification thresholds based on thousands of experiments, we recommend the following values:
   - `symcla_score <= 0.42`: Free-living
   - `0.42 < symcla_score < 1.21`: Symbiont;Host-associated
