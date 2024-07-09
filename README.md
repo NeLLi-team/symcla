@@ -35,7 +35,8 @@ _______
 
 ## 👩🏽‍🔬 [Important!] Input data
 
-- A directory with `faa` fasta files of query genomes with headers in the form: `><genomeid>|<proteinid>`
+- A directory with `faa` fasta files of genomes with fasta headers in the form: `>genomeid|proteinid`.
+>Note: `proteinid` must be unique for each protein.
 
 ## 🚀 Example run
 
