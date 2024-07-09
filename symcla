@@ -1,0 +1,439 @@
+#!/usr/bin/env python
+
+# TODO
+# 1. timing
+# [x] 2. better output folders
+# 3. docker
+# 4. progress bars
+# 5. fasta file renaming
+
+# from datetime import timedelta
+import time
+import glob
+import os
+import re
+import subprocess
+import numpy as np
+import pandas as pd
+import tarfile
+import typer
+import shap
+import shutil
+import xgboost as xgb
+
+"""
+XGBoost classifier of symbiont genomes
+Juan C. Villada
+jvillada@lbl.gov
+New Lineages of Life (NeLLi) Group
+US DOE Joint Genome Institute, LBNL
+June 2024
+
+
+./symcla --help
+./symcla classify --genomedir data/test_genomes_mini --savedir test_output_mini --ncpus 32
+./symcla classify --genomedir data/test_genomes --savedir test_output --ncpus 32
+"""
+
+
+def greetings():
+    my_name ="""
+
+
+     _______   ____  ________  _       ___  
+    /  ___\ \ / /  \/  /  __ \| |     / _ \ 
+    \ `--. \ V /| .  . | /  \/| |    / /_\ \ 
+     `--. \ \ / | |\/| | |    | |    |  _  | 
+    /\__/ / | | | |  | | \__/\| |____| | | | 
+    \____/  \_/ \_|  |_/\____/\_____/\_| |_/ 
+
+
+    """
+    typer.secho(my_name, fg=typer.colors.GREEN)
+
+
+def init_message_setup() -> None:
+    message = "\n" + "-"*10 + " Setup data workflow " + "-"*10 + "\n"
+    message = typer.style(text=message, fg=typer.colors.BRIGHT_GREEN, bold=True)
+    return typer.echo(message)
+
+
+def init_message_build() -> None:
+    message = "Building classifiers workflow\n"
+    message = typer.style(text=message, fg=typer.colors.BRIGHT_GREEN, bold=True)
+    return typer.echo(message)
+
+
+def init_message_classify() -> None:
+    message = "\n" + "-"*10 + " Classifying genomes workflow " + "-"*10 + "\n"
+    message = typer.style(text=message, fg=typer.colors.BRIGHT_GREEN, bold=True)
+    return typer.echo(message)
+
+
+# def download_data():
+#     remote_url = ""
+#     local_file = "data_v1.tar.gz"
+#     typer.secho("Downloading required data", fg=typer.colors.BRIGHT_GREEN)
+#     request.urlretrieve(remote_url, local_file)
+#     typer.secho(f"[OK] Data downloaded\n", fg=typer.colors.BRIGHT_MAGENTA)
+
+
+def extract_data() -> None:
+    typer.secho("Extracting required data", fg=typer.colors.BRIGHT_GREEN)
+    data_tar = tarfile.open("data_v1.tar.gz")
+    data_tar.extractall('.')
+    data_tar.close()
+    typer.secho(f"[OK] Data extracted\n", fg=typer.colors.BRIGHT_MAGENTA)
+
+
+def check_genomes_aa_format():
+    pass
+
+
+def check_genome_fasta_file_headers():
+    pass
+
+
+def check_compatible_genome_name_and_fasta_headers():
+    pass
+
+
+def create_output_dir(savedir: str) -> None:
+    typer.secho("Creating output dir", fg=typer.colors.BRIGHT_GREEN)
+    if os.path.exists(savedir):
+        typer.secho("[Error] Output directory already exists",
+                    fg=typer.colors.BRIGHT_RED, err=True)
+        exit()
+    else:
+        os.mkdir(savedir)
+        typer.secho(f"[OK] Output directory created at: {savedir} \n",
+                    fg=typer.colors.BRIGHT_MAGENTA)
+
+
+def get_tmp_dir(savedir: str) -> str:
+    tmp_dir_path = f"{savedir}/tmp"
+    return(tmp_dir_path)
+
+
+def create_tmp_dir(savedir: str) -> None:
+    tmp_dir_path = get_tmp_dir(savedir)
+    if os.path.exists(tmp_dir_path):
+        typer.secho("[Error] Output tmp directory already exists",
+                    fg=typer.colors.BRIGHT_RED, err=True)
+        exit()
+    else:
+        os.mkdir(tmp_dir_path)
+
+
+def merge_genomes(genomedir, savedir) -> None:
+    typer.secho("Merging genomes", fg=typer.colors.BRIGHT_GREEN)
+    genome_file_paths = glob.glob(genomedir + "/*.faa")
+    output_file = get_tmp_dir(savedir) + "/merged_genomes.faa"
+    with open(output_file, "w") as outfile:
+        for each_file in genome_file_paths:
+            with open(each_file) as infile:
+                for line in infile:
+                    outfile.write(line)
+    typer.secho(f"[OK] Fasta files merged at: {output_file} \n",
+                fg=typer.colors.BRIGHT_MAGENTA)
+
+
+def run_hmmsearch(symcla_model:str, savedir: str, ncpus: int) -> None:
+
+    typer.secho(f"Running hmmsearch on merged genomes for the hmm models file:\n",
+                    fg=typer.colors.BRIGHT_GREEN)
+
+    cmd_search = [
+        "hmmsearch",
+        "--cpu", str(ncpus), 
+        "--tblout", get_tmp_dir(savedir) + "/" + f"{symcla_model}_hmmsearch.tblout",
+        "--noali",
+        "-E", str(1000),
+        "--incE", str(1000),
+        # "-Z", str(61295632),
+        f"data/hmms_symcla/{symcla_model}.hmm",
+        get_tmp_dir(savedir) + "/merged_genomes.faa"
+        ]
+
+    subprocess.run(cmd_search, stdout=subprocess.PIPE)
+
+    typer.secho(f"[OK] Hmmsearch output saved at: {get_tmp_dir(savedir)}/{symcla_model}_hmmsearch.tblout \n",fg=typer.colors.BRIGHT_MAGENTA)
+
+
+def run_hmmsearch_uni56(savedir:str, ncpus:int) -> None:
+    hmmfile = "data/hmms_uni56/uni56.hmm"
+    cmd_search = ["hmmsearch",
+                  "--cpu", str(ncpus),
+                  "--tblout", get_tmp_dir(savedir) + "/" + "uni56_hmmsearch.tblout",
+                  "--noali",
+                  "--cut_ga",
+                  hmmfile,
+                  get_tmp_dir(savedir) + "/merged_genomes.faa"]
+    subprocess.run(cmd_search, stdout=subprocess.PIPE)
+
+    typer.secho(f"[OK] Hmmsearch output saved at: {get_tmp_dir(savedir)}/uni56_hmmsearch.tblout \n",fg=typer.colors.BRIGHT_MAGENTA)
+
+
+def save_list_of_models(symcla_model:str, savedir:str) -> None:
+
+    typer.secho(f"Saving list of models for each hmm model file",
+                fg=typer.colors.BRIGHT_GREEN)
+
+    list_of_hmm_models_files = [f"data/hmms_symcla/{symcla_model}.hmm"] + ["data/hmms_uni56/uni56.hmm"]
+
+    for hmmfile in list_of_hmm_models_files:
+        models_list_file_path = get_tmp_dir(savedir) + "/" + hmmfile.split("/")[-1].split(".")[0] + "_models.list"
+        with open(models_list_file_path, "w") as output_models_list_file:
+            with open(hmmfile, "r") as my_hmmfile:
+                for line in my_hmmfile:
+                    if re.search("NAME", line):
+                        output_models_list_file.write(line.replace("NAME  ", ""))
+
+    typer.secho(f"[OK] Models list saved\n", fg=typer.colors.BRIGHT_MAGENTA)
+
+
+def save_list_of_genomes(savedir:str, genomedir:str) -> None:
+
+    typer.secho(f"Saving list of genomes", fg=typer.colors.BRIGHT_GREEN)
+
+    list_of_genome_files = glob.glob(genomedir + "/*.faa")
+
+    genomes_list_file_path = get_tmp_dir(savedir) + "/genomes.list"
+
+    with open(genomes_list_file_path, "w") as output_genomes_list_file:
+        for each_element in list_of_genome_files:
+            output_genomes_list_file.write(each_element.split("/")[-1].split(".faa")[0] + "\n")
+
+    typer.secho(f"[OK] Genomes list saved\n", fg=typer.colors.BRIGHT_MAGENTA) 
+
+
+def hmmer_results_to_pandas_df(savedir:str) -> None:
+
+    typer.secho(f"Generating matrix of highest scores from the hmmsearch output",
+                fg=typer.colors.BRIGHT_GREEN)
+    
+    list_of_tblout_hmmsearch_output_files = glob.glob(get_tmp_dir(savedir) + "/*_hmmsearch.tblout")
+    
+    for tbloutfile in list_of_tblout_hmmsearch_output_files:
+    
+        tblout_hmm_result = pd.read_csv(tbloutfile,
+                                        header = None,
+                                        comment = "#",
+                                        delim_whitespace = True,
+                                        usecols = [0,2,4,5])
+    
+        models_names = pd.read_csv(tbloutfile.replace("_hmmsearch.tblout", "_models.list"),
+                                   sep = "\t",
+                                   header = None)
+    
+        genomes_names = pd.read_csv(get_tmp_dir(savedir)+"/genomes.list",
+                                    sep = "\t",
+                                    header = None)
+    
+        # Process hmmsearch output
+        tblout_hmm_result = tblout_hmm_result.rename(columns={0: "taxon_oid",
+                                                              2: "model",
+                                                              4: "evalue",
+                                                              5: "score"})
+        
+        tblout_hmm_result["taxon_oid"] = tblout_hmm_result["taxon_oid"].str.replace("\\|.*$", "", regex=True)
+        
+        # Grouping by COG and keeping only the max score
+        tblout_hmm_result = tblout_hmm_result.groupby(["taxon_oid", "model"]).max().reset_index()
+        tblout_hmm_result = tblout_hmm_result[["taxon_oid", "model", "score"]]
+        tblout_hmm_result = tblout_hmm_result.sort_values(by=["taxon_oid", "model", "score"]).reset_index(drop=True)
+        tblout_hmm_result = tblout_hmm_result.drop_duplicates()
+        tblout_hmm_result = tblout_hmm_result.pivot_table(index="taxon_oid", columns="model", values="score", fill_value=0)
+        
+        # Processing all taxa names
+        genomes_names = genomes_names.rename(columns = {0 : "taxon_oid"})
+        genomes_names = genomes_names.sort_values(by = ["taxon_oid"])
+        
+        # Merge dataframes based on taxa names
+        tblout_hmm_result = pd.merge(left = genomes_names, right = tblout_hmm_result, on = "taxon_oid", how = "left")
+        
+        # Fill missing values for which hmmsearch did not find any result even with the large E-value thresholds
+        # This missing values are normally due to sequences being of such low quality that they do not pass the hmmsearch filters
+        tblout_hmm_result.fillna(float(0.0), inplace=True)
+
+
+        # Load all model names to complete matrix with all COG models analysed
+        models_names = models_names.rename(columns={0 : "model"})
+        missing_models = set(models_names["model"]) - set(tblout_hmm_result.drop(["taxon_oid"], axis = 1).columns)
+        if len(missing_models) > 0:
+            for xmodel in missing_models:
+                # tblout_hmm_result[xmodel] = float(0)
+                new_column = pd.DataFrame(float(0.0), index=range(len(tblout_hmm_result.index)), columns=[xmodel])
+                tblout_hmm_result = pd.concat([tblout_hmm_result, new_column], axis = 1)
+
+        # Sort columns alphabetically, except for taxon_oid column which should be the first one
+        tblout_hmm_result = tblout_hmm_result.reindex(sorted(tblout_hmm_result.columns), axis=1)
+        tblout_hmm_result = tblout_hmm_result[["taxon_oid"] + [col for col in tblout_hmm_result.columns if col != "taxon_oid"]]
+        # Save output
+        tblout_hmm_result.to_csv(tbloutfile.replace("_hmmsearch.tblout", "_hits_all_models.tsv"), index = False, sep="\t")
+
+    typer.secho(f"[OK] All 'hits_all_models' tables saved\n", fg=typer.colors.BRIGHT_MAGENTA) 
+
+
+def classify_genomes(symcla_model:str, savedir:str) -> None:
+
+    typer.secho(f"Classifying genomes using the {symcla_model} model", fg=typer.colors.BRIGHT_GREEN)
+
+    all_tblout_df = pd.read_csv(get_tmp_dir(savedir) + f"/{symcla_model}_hits_all_models.tsv", sep="\t", low_memory=False)
+    all_tblout_df.to_csv(f"{savedir}/bitscore.tsv", sep="\t", index=False)
+
+    features_gt0 = all_tblout_df.drop(["taxon_oid"], axis = 1).apply(lambda x: x[x > 0].count(), axis=1)
+    features_ge20 = all_tblout_df.drop(["taxon_oid"], axis = 1).apply(lambda x: x[x >= 20].count(), axis=1)
+    features_ge100 = all_tblout_df.drop(["taxon_oid"], axis = 1).apply(lambda x: x[x >= 100].count(), axis=1)
+    tblout_hmm_result_total_models = pd.concat([all_tblout_df["taxon_oid"], features_gt0, features_ge20, features_ge100], axis=1)
+    tblout_hmm_result_total_models.columns = ["taxon_oid", "features_gt0", "features_ge20", "features_ge100"]
+    tblout_hmm_result_total_models.to_csv(get_tmp_dir(savedir) + "/total_models_per_genome.tsv", sep="\t", index=False)
+
+    taxon_oid_list = all_tblout_df["taxon_oid"].tolist()
+
+    all_tblout_df.drop(["taxon_oid"], axis=1, inplace=True)
+    # all_tblout_df=np.array(all_tblout_df)
+
+    xgb_model = xgb.XGBRegressor()
+    xgb_model.load_model(f"data/ml_models/{symcla_model}.json")
+    symcla_prediction = xgb_model.predict(all_tblout_df)
+    predictions_df=pd.DataFrame({"taxon_oid":taxon_oid_list})
+    predictions_df["symcla_score"] = symcla_prediction
+    predictions_df.to_csv(get_tmp_dir(savedir) + "/symcla_predictions.tsv", sep="\t", index=False)
+
+    # SHAP
+    typer.secho(f"Computing SHAP values", fg=typer.colors.BRIGHT_GREEN)
+    explainer = shap.Explainer(xgb_model)
+    shap_values = explainer(all_tblout_df)
+    shap_df = pd.DataFrame(shap_values.values, columns=all_tblout_df.columns)
+    shap_df["taxon_oid"] = taxon_oid_list
+    shap_df = shap_df[["taxon_oid"] + [col for col in shap_df.columns if col != "taxon_oid"]]
+    shap_df.to_csv(f"{savedir}/shap.tsv", sep="\t", index=False)
+    typer.secho(f"[OK] Genomes classified\n", fg=typer.colors.BRIGHT_MAGENTA)
+
+
+
+def compute_feature_contribution(savedir:str) -> None:
+
+    typer.secho(f"Computing feature contribution", fg=typer.colors.BRIGHT_GREEN)
+
+    bitscore_df = pd.read_csv(f"{savedir}/bitscore.tsv", sep="\t", low_memory=False)
+    shap_df     = pd.read_csv(f"{savedir}/shap.tsv",     sep="\t", low_memory=False)
+    
+    bitscore_melt = bitscore_df.melt(id_vars="taxon_oid", var_name="feature", value_name="bitscore")
+    shap_melt     =     shap_df.melt(id_vars="taxon_oid", var_name="feature", value_name="shap")
+
+    bitscore_melt.to_csv(f"{savedir}/bitscore_melt.tsv", sep="\t", index=False)
+    shap_melt.to_csv(f"{savedir}/shap_melt.tsv", sep="\t", index=False)
+
+    contribution_df = shap_melt.merge(bitscore_melt, on=["taxon_oid", "feature"], how="left")
+
+    features_annotation_df = pd.read_csv("data/feature_annotation_majority_for_symcla.tsv", sep="\t")
+
+    contribution_df = contribution_df.merge(features_annotation_df, on="feature", how="left")
+
+    contribution_df = contribution_df[contribution_df["shap"].abs() > 0.01]
+    contribution_df.to_csv(f"{savedir}/feature_contribution.tsv", sep="\t", index=False)
+
+    # remove shap and bitscore melt files
+    os.remove(f"{savedir}/bitscore.tsv")
+    os.remove(f"{savedir}/shap.tsv")
+    os.remove(f"{savedir}/bitscore_melt.tsv")
+    os.remove(f"{savedir}/shap_melt.tsv")
+
+    typer.secho(f"[OK] Feature contribution computed\n", fg=typer.colors.BRIGHT_MAGENTA)
+
+
+
+def count_uni56(savedir) -> None:
+    df_uni56 = pd.read_csv(get_tmp_dir(savedir) + "/uni56_hits_all_models.tsv", sep = "\t")
+    df_uni56 = df_uni56.set_index("taxon_oid", drop=True)
+    df_uni56[df_uni56 > 0] = 1
+    df_uni56["total_UNI56"] = df_uni56.sum(axis=1)
+    df_uni56["completeness_UNI56"] = 100*(df_uni56["total_UNI56"]/56)
+    df_uni56.to_csv(get_tmp_dir(savedir) + "/uni56_presence.tsv", sep="\t", index = True)
+
+
+def save_final_results(savedir) -> None:
+    classifier_results = pd.read_csv(get_tmp_dir(savedir) + "/symcla_predictions.tsv", sep="\t")
+    uni56_results = pd.read_csv(get_tmp_dir(savedir) + "/uni56_presence.tsv", sep="\t", usecols=["taxon_oid", "completeness_UNI56"])
+    total_models_results = pd.read_csv(get_tmp_dir(savedir) + "/total_models_per_genome.tsv", sep="\t")
+
+    final_df = pd.merge(left = classifier_results,
+                        right = uni56_results,
+                        on = ["taxon_oid"],
+                        how = "inner")
+
+    final_df = pd.merge(left = final_df,
+                        right = total_models_results,
+                        on = ["taxon_oid"],
+                        how = "inner")
+
+    # Reorder columns of final_df dataframe as follows: taxon_oid, completeness_UNI56, total_models, symcla_score
+    final_df = final_df[["taxon_oid", "completeness_UNI56", "features_gt0", "features_ge20", "features_ge100", "symcla_score"]]
+
+    # final_df.to_csv(get_tmp_dir(savedir) + "/results.tsv", sep="\t", index = True)
+    round(final_df,3).to_csv(savedir + "/symcla_results.tsv", sep="\t", index = False)  
+    typer.secho(message="---------- Rounded (3 digits) summary:", fg=typer.colors.BRIGHT_MAGENTA)
+    typer.secho(message=round(final_df, 3), fg=typer.colors.BRIGHT_BLUE)
+    typer.secho(message="\n\n----- DONE -----\n\n", fg=typer.colors.BRIGHT_GREEN)
+
+
+def remove_temp_files(savedir:str) -> None:
+    typer.secho(message="Removing tmp folder\n", fg=typer.colors.BRIGHT_GREEN)
+    shutil.rmtree(get_tmp_dir(savedir))
+
+
+app = typer.Typer()
+# app = typer.Typer(help=greetings())
+
+@app.command()
+def setup():
+    init_message_setup()
+    greetings()
+    extract_data()
+
+
+@app.command()
+def build():
+    greetings()
+    init_message_build()
+
+
+@app.command()
+def classify(genomedir: str = "genomes",
+             savedir: str = "output",
+             symcla_model: str = "sy50",
+             ncpus: int = 16,
+             deltmp: bool = True):
+    # init timer
+    start_time = time.time()
+    # run pipeline
+    greetings()
+    init_message_classify()
+    check_genome_fasta_file_headers()
+    create_output_dir(savedir=savedir)
+    get_tmp_dir(savedir=savedir)
+    create_tmp_dir(savedir=savedir)
+    merge_genomes(genomedir=genomedir, savedir=savedir)
+    run_hmmsearch(symcla_model=symcla_model, savedir=savedir, ncpus=ncpus)
+    run_hmmsearch_uni56(savedir=savedir, ncpus=ncpus)
+    save_list_of_models(symcla_model=symcla_model, savedir=savedir)
+    save_list_of_genomes(savedir=savedir, genomedir=genomedir)
+    hmmer_results_to_pandas_df(savedir=savedir)
+    # join_positive_and_negative_selection_df(savedir=savedir)
+    classify_genomes(symcla_model=symcla_model, savedir=savedir)
+    compute_feature_contribution(savedir=savedir)
+    count_uni56(savedir=savedir)
+    save_final_results(savedir=savedir)
+    if deltmp:
+        remove_temp_files(savedir=savedir)
+
+    # end timer
+    end_time = time.time()
+    typer.secho(message=f"Total time: {round(end_time - start_time)} seconds ({round((end_time - start_time)/60, 1)} minutes)", fg=typer.colors.BRIGHT_MAGENTA)
+
+
+
+if __name__ == "__main__":
+    app()
