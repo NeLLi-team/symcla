@@ -91,3 +91,16 @@ Expected results from the test data:
 | SXGCA_000019745.1                       | 98.214             | 353         | 259           | 106            | 0.126        |
 | SXGCA_902860225.1_Azoamicus_ciliaticola | 91.071             | 117         | 83            | 36             | 1.055        |
 | SXISO642555114                          | 96.429             | 333         | 243           | 108            | 1.995        |
+
+### 🧐 Interpretation of results:
+- `completeness_UNI56`: The percentage of 56 universal bacterial and archaeal marker genes found in the genome. We do not advise to trust any results <50%. Confidence in symbiont prediction increases with UNI56 completeness.
+- `features_gt01`: Number of features found with a bitscore greater than 0. Confidence in symbiont prediction increases with more featured found.
+- `features_ge20`: Number of features found with a bitscore greater or equal than 20. Confidence in symbiont prediction increases with more featured found.
+- `features_ge100`: Number of features found with a bitscore greater or equal than 100. Confidence in symbiont prediction increases with more featured found.
+- `symcla_score`: after adjusting the classification thresholds based on thousands of experiments, we recommend the following values:
+  - `symcla_score <= 0.42`: Free-living
+  - `0.42 < symcla_score < 1.21`: Symbiont;Host-associated
+  - `symcla_score >= 1.21`: Symbiont;Intracellular
+    
+🤖 *Note: by design `symcla` minimizes the rate of false positives for symbionts, at the expense of increased false negatives (i.e. some symbionts might still get a lower `symcla` score).*
+
