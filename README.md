@@ -1,3 +1,7 @@
+![GitHub top language](https://img.shields.io/github/languages/top/NeLLi-team/symcla)
+![GitHub License](https://img.shields.io/github/license/NeLLi-team/symcla)
+
+
 # symcla: symbiont classifier
 
 ## 💾 Installation
