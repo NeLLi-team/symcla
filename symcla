@@ -40,12 +40,12 @@ def greetings():
     my_name ="""
 
 
-     _______   ____  ________  _       ___  
-    /  ___\ \ / /  \/  /  __ \| |     / _ \ 
-    \ `--. \ V /| .  . | /  \/| |    / /_\ \ 
-     `--. \ \ / | |\/| | |    | |    |  _  | 
-    /\__/ / | | | |  | | \__/\| |____| | | | 
-    \____/  \_/ \_|  |_/\____/\_____/\_| |_/ 
+     _______   ____  ________  _       ___
+    /  ___\ \ / /  \/  /  __ \| |     / _ \
+    \ `--. \ V /| .  . | /  \/| |    / /_\ \
+     `--. \ \ / | |\/| | |    | |    |  _  |
+    /\__/ / | | | |  | | \__/\| |____| | | |
+    \____/  \_/ \_|  |_/\____/\_____/\_| |_/
 
 
     """
@@ -145,7 +145,7 @@ def run_hmmsearch(symcla_model:str, savedir: str, ncpus: int) -> None:
 
     cmd_search = [
         "hmmsearch",
-        "--cpu", str(ncpus), 
+        "--cpu", str(ncpus),
         "--tblout", get_tmp_dir(savedir) + "/" + f"{symcla_model}_hmmsearch.tblout",
         "--noali",
         "-E", str(1000),
@@ -204,54 +204,54 @@ def save_list_of_genomes(savedir:str, genomedir:str) -> None:
         for each_element in list_of_genome_files:
             output_genomes_list_file.write(each_element.split("/")[-1].split(".faa")[0] + "\n")
 
-    typer.secho(f"[OK] Genomes list saved\n", fg=typer.colors.BRIGHT_MAGENTA) 
+    typer.secho(f"[OK] Genomes list saved\n", fg=typer.colors.BRIGHT_MAGENTA)
 
 
 def hmmer_results_to_pandas_df(savedir:str) -> None:
 
     typer.secho(f"Generating matrix of highest scores from the hmmsearch output",
                 fg=typer.colors.BRIGHT_GREEN)
-    
+
     list_of_tblout_hmmsearch_output_files = glob.glob(get_tmp_dir(savedir) + "/*_hmmsearch.tblout")
-    
+
     for tbloutfile in list_of_tblout_hmmsearch_output_files:
-    
+
         tblout_hmm_result = pd.read_csv(tbloutfile,
                                         header = None,
                                         comment = "#",
                                         delim_whitespace = True,
                                         usecols = [0,2,4,5])
-    
+
         models_names = pd.read_csv(tbloutfile.replace("_hmmsearch.tblout", "_models.list"),
                                    sep = "\t",
                                    header = None)
-    
+
         genomes_names = pd.read_csv(get_tmp_dir(savedir)+"/genomes.list",
                                     sep = "\t",
                                     header = None)
-    
+
         # Process hmmsearch output
         tblout_hmm_result = tblout_hmm_result.rename(columns={0: "taxon_oid",
                                                               2: "model",
                                                               4: "evalue",
                                                               5: "score"})
-        
+
         tblout_hmm_result["taxon_oid"] = tblout_hmm_result["taxon_oid"].str.replace("\\|.*$", "", regex=True)
-        
+
         # Grouping by COG and keeping only the max score
         tblout_hmm_result = tblout_hmm_result.groupby(["taxon_oid", "model"]).max().reset_index()
         tblout_hmm_result = tblout_hmm_result[["taxon_oid", "model", "score"]]
         tblout_hmm_result = tblout_hmm_result.sort_values(by=["taxon_oid", "model", "score"]).reset_index(drop=True)
         tblout_hmm_result = tblout_hmm_result.drop_duplicates()
         tblout_hmm_result = tblout_hmm_result.pivot_table(index="taxon_oid", columns="model", values="score", fill_value=0)
-        
+
         # Processing all taxa names
         genomes_names = genomes_names.rename(columns = {0 : "taxon_oid"})
         genomes_names = genomes_names.sort_values(by = ["taxon_oid"])
-        
+
         # Merge dataframes based on taxa names
         tblout_hmm_result = pd.merge(left = genomes_names, right = tblout_hmm_result, on = "taxon_oid", how = "left")
-        
+
         # Fill missing values for which hmmsearch did not find any result even with the large E-value thresholds
         # This missing values are normally due to sequences being of such low quality that they do not pass the hmmsearch filters
         tblout_hmm_result.fillna(float(0.0), inplace=True)
@@ -272,7 +272,7 @@ def hmmer_results_to_pandas_df(savedir:str) -> None:
         # Save output
         tblout_hmm_result.to_csv(tbloutfile.replace("_hmmsearch.tblout", "_hits_all_models.tsv"), index = False, sep="\t")
 
-    typer.secho(f"[OK] All 'hits_all_models' tables saved\n", fg=typer.colors.BRIGHT_MAGENTA) 
+    typer.secho(f"[OK] All 'hits_all_models' tables saved\n", fg=typer.colors.BRIGHT_MAGENTA)
 
 
 def classify_genomes(symcla_model:str, savedir:str) -> None:
@@ -319,7 +319,7 @@ def compute_feature_contribution(savedir:str) -> None:
 
     bitscore_df = pd.read_csv(f"{savedir}/bitscore.tsv", sep="\t", low_memory=False)
     shap_df     = pd.read_csv(f"{savedir}/shap.tsv",     sep="\t", low_memory=False)
-    
+
     bitscore_melt = bitscore_df.melt(id_vars="taxon_oid", var_name="feature", value_name="bitscore")
     shap_melt     =     shap_df.melt(id_vars="taxon_oid", var_name="feature", value_name="shap")
 
@@ -373,7 +373,7 @@ def save_final_results(savedir) -> None:
     final_df = final_df[["taxon_oid", "completeness_UNI56", "features_gt0", "features_ge20", "features_ge100", "symcla_score"]]
 
     # final_df.to_csv(get_tmp_dir(savedir) + "/results.tsv", sep="\t", index = True)
-    round(final_df,3).to_csv(savedir + "/symcla_results.tsv", sep="\t", index = False)  
+    round(final_df,3).to_csv(savedir + "/symcla_results.tsv", sep="\t", index = False)
     typer.secho(message="---------- Rounded (3 digits) summary:", fg=typer.colors.BRIGHT_MAGENTA)
     typer.secho(message=round(final_df, 3), fg=typer.colors.BRIGHT_BLUE)
     typer.secho(message="\n\n----- DONE -----\n\n", fg=typer.colors.BRIGHT_GREEN)

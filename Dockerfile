@@ -1,35 +1,25 @@
-FROM --platform=linux/amd64 ubuntu:23.10
+FROM --platform=linux/amd64 condaforge/mambaforge:24.3.0-0
 
-RUN apt-get update
-RUN apt-get -y upgrade
-RUN apt-get install -y build-essential wget libncurses5-dev zlib1g-dev libbz2-dev liblzma-dev libcurl3-dev curl tar git
-RUN apt-get clean
-RUN apt-get purge
-RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+LABEL maintainer="jvillada@lbl.gov"
+LABEL version="v0.1"
+LABEL software="symcla: symbiont classifier"
 
-WORKDIR /usr/src
+WORKDIR /usr/src/
+ADD symcla /usr/src/symcla/
 
-# Copy the entire symcla folder into the container
-COPY . /usr/src/symcla
+ADD data/feature_annotation_majority_for_symcla.tsv /usr/src/symcla/data/
+ADD data/hmms_symcla /usr/src/symcla/data/hmms_symcla/
+ADD data/hmms_uni56 /usr/src/symcla/data/hmms_uni56/
+ADD data/ml_models /usr/src/symcla/data/ml_models/
 
-# Make the symcla executable
+ADD requirements.txt /usr/src/symcla/
 RUN chmod +x /usr/src/symcla
 
-# Add the symcla repo to the path
+RUN mamba install -c bioconda --file /usr/src/symcla/requirements.txt -y
+RUN mamba clean --all
+
 ENV PATH=${PATH}:/usr/src/symcla
 
-
-# Install Mamabaforge:
-RUN wget https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh && \
-    bash Mambaforge-Linux-x86_64.sh -b -p /usr/src/mambaforge && \
-    rm Mambaforge-Linux-x86_64.sh
-
-# Add mambaforge to the path
-ENV PATH=${PATH}:/usr/src/mambaforge/bin
-
-# Install mamba packages using the requirements file, make sure yes is seleted
-RUN mamba install -c bioconda --file /usr/src/symcla/requirements.txt -y
-
-# Setup symcla
 WORKDIR /usr/src/symcla
-RUN symcla setup
+
+RUN rm requirements.txt
