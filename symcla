@@ -20,16 +20,21 @@ import typer
 import shap
 import shutil
 import xgboost as xgb
+from pathlib import Path
 
 """
-XGBoost classifier of symbiont genomes
-Juan C. Villada
-jvillada@lbl.gov
+symcla: Symbiont Classifier
+
+Author: Juan C. Villada
+Email: jvillada@lbl.gov
+
 New Lineages of Life (NeLLi) Group
-US DOE Joint Genome Institute, LBNL
-June 2024
+US Department of Energy Joint Genome Institute (JGI)
+Lawrence Berkeley National Laboratory (LBNL)
+2024
 
 
+Usage:
 ./symcla --help
 ./symcla classify --genomedir data/test_genomes_mini --savedir test_output_mini --ncpus 32
 ./symcla classify --genomedir data/test_genomes --savedir test_output --ncpus 32
@@ -37,36 +42,25 @@ June 2024
 
 
 def greetings():
-    my_name ="""
-
-
-     _______   ____  ________  _       ___
-    /  ___\ \ / /  \/  /  __ \| |     / _ \
-    \ `--. \ V /| .  . | /  \/| |    / /_\ \
-     `--. \ \ / | |\/| | |    | |    |  _  |
-    /\__/ / | | | |  | | \__/\| |____| | | |
-    \____/  \_/ \_|  |_/\____/\_____/\_| |_/
-
-
-    """
-    typer.secho(my_name, fg=typer.colors.GREEN)
+    my_name ="\n\nsymcla: symbiont classifier"
+    typer.secho(my_name, fg=typer.colors.GREEN, bold=True)
 
 
 def init_message_setup() -> None:
     message = "\n" + "-"*10 + " Setup data workflow " + "-"*10 + "\n"
-    message = typer.style(text=message, fg=typer.colors.BRIGHT_GREEN, bold=True)
+    message = typer.style(text=message, fg=typer.colors.BRIGHT_GREEN, bold=False)
     return typer.echo(message)
 
 
 def init_message_build() -> None:
     message = "Building classifiers workflow\n"
-    message = typer.style(text=message, fg=typer.colors.BRIGHT_GREEN, bold=True)
+    message = typer.style(text=message, fg=typer.colors.BRIGHT_GREEN, bold=False)
     return typer.echo(message)
 
 
 def init_message_classify() -> None:
     message = "\n" + "-"*10 + " Classifying genomes workflow " + "-"*10 + "\n"
-    message = typer.style(text=message, fg=typer.colors.BRIGHT_GREEN, bold=True)
+    message = typer.style(text=message, fg=typer.colors.BRIGHT_GREEN, bold=False)
     return typer.echo(message)
 
 
@@ -143,6 +137,10 @@ def run_hmmsearch(symcla_model:str, savedir: str, ncpus: int) -> None:
     typer.secho(f"Running hmmsearch on merged genomes for the hmm models file:\n",
                     fg=typer.colors.BRIGHT_GREEN)
 
+    script_path = Path(__file__)
+    script_dir = script_path.parent
+    data_folder = Path(script_dir) / "data"
+
     cmd_search = [
         "hmmsearch",
         "--cpu", str(ncpus),
@@ -151,7 +149,8 @@ def run_hmmsearch(symcla_model:str, savedir: str, ncpus: int) -> None:
         "-E", str(1000),
         "--incE", str(1000),
         # "-Z", str(61295632),
-        f"data/hmms_symcla/{symcla_model}.hmm",
+        data_folder / f"hmms_symcla/{symcla_model}.hmm",
+        # f"data/hmms_symcla/{symcla_model}.hmm",
         get_tmp_dir(savedir) + "/merged_genomes.faa"
         ]
 
@@ -218,8 +217,8 @@ def hmmer_results_to_pandas_df(savedir:str) -> None:
 
         tblout_hmm_result = pd.read_csv(tbloutfile,
                                         header = None,
+                                        sep=r"\s+",
                                         comment = "#",
-                                        delim_whitespace = True,
                                         usecols = [0,2,4,5])
 
         models_names = pd.read_csv(tbloutfile.replace("_hmmsearch.tblout", "_models.list"),

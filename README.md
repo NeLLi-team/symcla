@@ -109,7 +109,13 @@ Expected results from the test data:
 
 🤖 *Note: by design `symcla` minimizes the rate of false positives for symbionts, at the expense of increased false negatives (i.e. some Symbiont;Host-associated might still get a `symcla` score lower than 0.42, and some Symbiont;Intracellular might still get a `symcla` score lower than 1.21).*
 
-### 🐳 symcla container
+### 🐳 symcla containers
+
+## Docker
+
+```bash
+docker pull jvillada/symcla:latest
+```
 
 ## shifter
 
@@ -127,3 +133,17 @@ shifter --image=docker:jvillada/symcla:latest \
 
 ## apptainer
 
+```bash
+apptainer pull \
+        docker://docker.io/jvillada/symcla:latest
+
+
+apptainer run \
+        symcla_latest.sif \
+        symcla \
+        classify \
+        --genomedir path_to_dir_with_faa_files \
+        --savedir path_to_output_dir \
+        --ncpus 16 \
+        --symcla-model sy50
+```
