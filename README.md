@@ -111,7 +111,7 @@ Expected results from the test data:
 
 ### 🐳 symcla container
 
-## Apptainer
+#### Apptainer
 
 ```bash
 apptainer pull \
