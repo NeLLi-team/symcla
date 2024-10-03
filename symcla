@@ -19,6 +19,7 @@ import tarfile
 import typer
 import shap
 import shutil
+import json
 import xgboost as xgb
 from pathlib import Path
 
@@ -80,18 +81,6 @@ def extract_data() -> None:
     typer.secho(f"[OK] Data extracted\n", fg=typer.colors.BRIGHT_MAGENTA)
 
 
-def check_genomes_aa_format():
-    pass
-
-
-def check_genome_fasta_file_headers():
-    pass
-
-
-def check_compatible_genome_name_and_fasta_headers():
-    pass
-
-
 def create_output_dir(savedir: str) -> None:
     typer.secho("Creating output dir", fg=typer.colors.BRIGHT_GREEN)
     if os.path.exists(savedir):
@@ -117,6 +106,34 @@ def create_tmp_dir(savedir: str) -> None:
         exit()
     else:
         os.mkdir(tmp_dir_path)
+
+
+def copy_genomes_to_tmp_dir(genomedir: str, savedir: str) -> str:
+    tmp_genome_dir_path = f"{get_tmp_dir(savedir)}/genomes"
+    os.mkdir(tmp_genome_dir_path)
+    for each_file in glob.glob(genomedir + "/*.faa"):
+        shutil.copy(each_file, tmp_dir_path)
+    return(tmp_genome_dir_path)
+
+
+def rename_genomes(tmp_genome_dir_path: str, savedir: str) -> None:
+    genome_file_paths = glob.glob(tmp_genome_dir_path + "/*.faa")
+    genome_names = [x.split("/")[-1].split(".faa")[0] for x in genome_file_paths]
+    # the dictionary will have as keys the new simplified name of the genome and as values the original name
+    # the simplied name will be genome_1, genome_2, etc
+    genome_dict = {f"genome_{i+1}": genome_names[i] for i in range(len(genome_names))}
+    with open(f"{get_tmp_dir(savedir)}/genomes_dict.json", "w") as outfile:
+        json.dump(genome_dict, outfile)
+
+    # rename the faa fasta files with the new simplified names
+    for i, each_file in enumerate(genome_file_paths):
+        new_name = f"{tmp_genome_dir_path}/genome_{i+1}.faa"
+        os.rename(each_file, new_name)
+
+    typer.secho(f"[OK] Genomes renamed\n", fg=typer.colors.BRIGHT_MAGENTA)
+
+
+
 
 
 def merge_genomes(genomedir, savedir) -> None:
@@ -414,6 +431,11 @@ def classify(genomedir: str = "genomes",
     create_output_dir(savedir=savedir)
     get_tmp_dir(savedir=savedir)
     create_tmp_dir(savedir=savedir)
+
+
+    copy_genomes_to_tmp_dir(genomedir=genomedir, savedir=savedir)
+
+
     merge_genomes(genomedir=genomedir, savedir=savedir)
     run_hmmsearch(symcla_model=symcla_model, savedir=savedir, ncpus=ncpus)
     run_hmmsearch_uni56(savedir=savedir, ncpus=ncpus)
