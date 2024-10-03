@@ -75,7 +75,7 @@ def init_message_classify() -> None:
 def extract_data() -> None:
     typer.secho("Extracting required data", fg=typer.colors.BRIGHT_GREEN)
     data_tar = tarfile.open("data_v1.tar.gz")
-    data_tar.extractall('.')
+    data_tar.extractall(".")
     data_tar.close()
     typer.secho(f"[OK] Data extracted\n", fg=typer.colors.BRIGHT_MAGENTA)
 
