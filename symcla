@@ -57,14 +57,6 @@ def init_message_classify() -> None:
     return typer.echo(message)
 
 
-# def download_data():
-#     remote_url = ""
-#     local_file = "data_v1.tar.gz"
-#     typer.secho("Downloading required data", fg=typer.colors.BRIGHT_GREEN)
-#     request.urlretrieve(remote_url, local_file)
-#     typer.secho(f"[OK] Data downloaded\n", fg=typer.colors.BRIGHT_MAGENTA)
-
-
 def extract_data() -> None:
     typer.secho("Extracting required data", fg=typer.colors.BRIGHT_GREEN)
     data_tar = tarfile.open("data_v1.tar.gz")
@@ -110,21 +102,26 @@ def copy_genomes_to_tmp_dir(genomedir: str) -> str:
     return tmp_genome_dir_path
 
 
-def rename_genomes(tmp_genome_dir_path: str) -> None:
+def rename_genomes(tmp_genome_dir_path: str) -> str:
     genome_file_paths = glob.glob(tmp_genome_dir_path + "/*.faa")
     genome_names = [x.split("/")[-1].split(".faa")[0] for x in genome_file_paths]
     # the dictionary will have as keys the new simplified name of the genome and as values the original name
     # the simplied name will be genome_1, genome_2, etc
     genome_dict = {f"genome_{i+1}": genome_names[i] for i in range(len(genome_names))}
-    with open(f"{tmp_dir_path}/genomes_dict.json", "w") as outfile:
+
+    genome_dict_path = f"{tmp_dir_path}/genomes_dict.json"
+    with open(genome_dict_path, "w") as outfile:
         json.dump(genome_dict, outfile)
 
-    # rename the faa fasta files with the new simplified names
-    for i, each_file in enumerate(genome_file_paths):
-        new_name = f"{tmp_genome_dir_path}/genome_{i+1}.faa"
-        os.rename(each_file, new_name)
+    # rename the faa fasta files with the new simplified names using the genome_dict
+    for each_genome in genome_file_paths:
+        genome_name = each_genome.split("/")[-1].split(".faa")[0]
+        new_name = f"{tmp_genome_dir_path}/{list(genome_dict.keys())[list(genome_dict.values()).index(genome_name)]}.faa"
+        os.rename(each_genome, new_name)
 
     typer.secho("[OK] Genomes renamed\n", fg=typer.colors.BRIGHT_MAGENTA)
+
+    return genome_dict_path
 
 
 def rename_all_proteins_in_fasta_files(tmp_genome_dir_path: str, savedir: str) -> None:
@@ -298,17 +295,6 @@ def hmmer_results_to_pandas_df() -> None:
             columns={0: "taxon_oid", 2: "model", 4: "evalue", 5: "score"}
         )
 
-        # create a copy of the entire data frame tblout_hmm_result to keep the original taxon_oid column
-        # tblout_hmm_result_copy_for_protein_name_detection = tblout_hmm_result.copy()
-        # tblout_hmm_result_copy_for_protein_name_detection["taxon_oid_original"] = tblout_hmm_result_copy_for_protein_name_detection["taxon_oid"]
-        # tblout_hmm_result_copy_for_protein_name_detection["taxon_oid"] = tblout_hmm_result_copy_for_protein_name_detection["taxon_oid"].str.replace("\\|.*$", "", regex=True)
-        # tblout_hmm_result_copy_for_protein_name_detection["protein_name"] = tblout_hmm_result_copy_for_protein_name_detection["taxon_oid_original"].str.replace(".*\\|", "", regex=True)
-        # tblout_hmm_result_copy_for_protein_name_detection = tblout_hmm_result_copy_for_protein_name_detection.groupby(["taxon_oid", "model"]).max().reset_index()
-        # tblout_hmm_result_copy_for_protein_name_detection = tblout_hmm_result_copy_for_protein_name_detection[["taxon_oid", "model", "score", "protein_name"]]
-        # tblout_hmm_result_copy_for_protein_name_detection = tblout_hmm_result_copy_for_protein_name_detection.sort_values(by=["taxon_oid", "model", "score"]).reset_index(drop=True)
-        # tblout_hmm_result_copy_for_protein_name_detection = tblout_hmm_result_copy_for_protein_name_detection.drop_duplicates()
-        # tblout_hmm_result_copy_for_protein_name_detection = tblout_hmm_result_copy_for_protein_name_detection.pivot_table(index="taxon_oid", columns="model", values="protein_name", fill_value="not_found")
-
         tblout_hmm_result["protein_name"] = tblout_hmm_result["taxon_oid"].str.replace(
             ".*\\|", "", regex=True
         )
@@ -344,7 +330,6 @@ def hmmer_results_to_pandas_df() -> None:
         tblout_hmm_result = pd.merge(
             left=genomes_names, right=tblout_hmm_result, on="taxon_oid", how="left"
         )
-        # tblout_hmm_result_copy_for_protein_name_detection = pd.merge(left = genomes_names, right = tblout_hmm_result_copy_for_protein_name_detection, on = "taxon_oid", how = "left")
 
         # Fill missing values for which hmmsearch did not find any result even with the large E-value thresholds
         # This missing values are normally due to sequences being of such low quality that they do not pass the hmmsearch filters
@@ -486,13 +471,42 @@ def compute_feature_contribution(savedir: str) -> None:
     )
 
     contribution_df = contribution_df[contribution_df["shap"].abs() > 0.01]
+
+    # rename the protein names back to the original names
+    genome_dict_path = f"{tmp_dir_path}/genomes_dict.json"
+    with open(genome_dict_path, "r") as infile:
+        genome_dict = json.load(infile)
+
+    contribution_df["genome_name_renamed"] = contribution_df["taxon_oid"]
+    contribution_df["taxon_oid"] = contribution_df["taxon_oid"].replace(genome_dict)
+
+    # create a dictionary of dictionaries with the protein names for each genome
+    protein_dict_paths_list = glob.glob(
+        f"{tmp_dir_path}/renamed_genomes/genome_*_dict.json"
+    )
+
+    # protein_dict_paths will have genome name as key and the path to the protein dictionary as value
+    protein_dict_paths = {
+        x.split("/")[-1].split("_dict.json")[0]: x for x in protein_dict_paths_list
+    }
+
+    # create a dictionary of dictionaries with the protein names for each genome
+    protein_dict = {}
+    for genome_name, protein_dict_path in protein_dict_paths.items():
+        with open(protein_dict_path, "r") as infile:
+            protein_dict[genome_name] = json.load(infile)
+
+    contribution_df["protein_name"] = contribution_df.apply(
+        lambda x: protein_dict[x["genome_name_renamed"]][x["protein_name"]], axis=1
+    )
+
     contribution_df.to_csv(f"{savedir}/feature_contribution.tsv", sep="\t", index=False)
 
     # remove shap and bitscore melt files
-    # os.remove(f"{savedir}/bitscore.tsv")
-    # os.remove(f"{savedir}/shap.tsv")
-    # os.remove(f"{savedir}/bitscore_melt.tsv")
-    # os.remove(f"{savedir}/shap_melt.tsv")
+    os.remove(f"{savedir}/bitscore.tsv")
+    os.remove(f"{savedir}/shap.tsv")
+    os.remove(f"{savedir}/bitscore_melt.tsv")
+    os.remove(f"{savedir}/shap_melt.tsv")
 
     typer.secho("[OK] Feature contribution computed\n", fg=typer.colors.BRIGHT_MAGENTA)
 
@@ -537,7 +551,13 @@ def save_final_results(savedir: str) -> None:
         ]
     ]
 
-    # final_df.to_csv(tmp_dir_path + "/results.tsv", sep="\t", index = True)
+    # rename the genome names back to the original names
+    genome_dict_path = f"{tmp_dir_path}/genomes_dict.json"
+    with open(genome_dict_path, "r") as infile:
+        genome_dict = json.load(infile)
+
+    final_df["taxon_oid"] = final_df["taxon_oid"].replace(genome_dict)
+
     round(final_df, 3).to_csv(savedir + "/symcla_results.tsv", sep="\t", index=False)
     typer.secho(
         message="---------- Rounded (3 digits) summary:", fg=typer.colors.BRIGHT_MAGENTA
@@ -570,8 +590,8 @@ def build():
 
 @app.command()
 def classify(
-    genomedir: str = "genomes",
-    savedir: str = "output",
+    genomedir: str = "input_genomes",
+    savedir: str = "output_symcla",
     ncpus: int = 16,
     deltmp: bool = True,
 ):
