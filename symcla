@@ -302,15 +302,15 @@ def hmmer_results_to_pandas_df() -> None:
             "\\|.*$", "", regex=True
         )
 
-        # Grouping by COG and keeping only the max score
-        tblout_hmm_result = (
-            tblout_hmm_result.groupby(["taxon_oid", "model"]).max().reset_index()
-        )
-
         tblout_hmm_result.to_csv(
             tbloutfile.replace("_hmmsearch.tblout", "_hits_with_protein_names.tsv"),
             index=False,
             sep="\t",
+        )
+
+        # Grouping by COG and keeping only the max score
+        tblout_hmm_result = (
+            tblout_hmm_result.groupby(["taxon_oid", "model"]).max().reset_index()
         )
 
         tblout_hmm_result = tblout_hmm_result[["taxon_oid", "model", "score"]]
@@ -496,8 +496,18 @@ def compute_feature_contribution(savedir: str) -> None:
         with open(protein_dict_path, "r") as infile:
             protein_dict[genome_name] = json.load(infile)
 
+    contribution_df["protein_name_renamed"] = contribution_df["protein_name"]
+
     contribution_df["protein_name"] = contribution_df.apply(
-        lambda x: protein_dict[x["genome_name_renamed"]][x["protein_name"]], axis=1
+        lambda x: protein_dict[x["genome_name_renamed"]].get(
+            x["protein_name_renamed"], "absent"
+        ),
+        axis=1,
+    )
+
+    # remove the columns genome_name_renamed and protein_name_renamed
+    contribution_df.drop(
+        columns=["genome_name_renamed", "protein_name_renamed"], inplace=True
     )
 
     contribution_df.to_csv(f"{savedir}/feature_contribution.tsv", sep="\t", index=False)
