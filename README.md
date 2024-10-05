@@ -37,11 +37,6 @@ conda activate symcla
 
 _______
 
-## 👩🏽‍🔬 [Important!] Input data
-
-- A directory with `faa` fasta files of genomes with fasta headers in the form: `>genomeid|proteinid`.
->Note: `proteinid` must be unique for each protein.
-
 ## 🚀 Example run
 
 ```{shell}
