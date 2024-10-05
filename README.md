@@ -68,9 +68,8 @@ cd symcla/
 # Usage: symcla classify [OPTIONS]
 #
 # ╭─ Options ──────────────────────────────────────────────────────────────────────╮
-# │ --genomedir                      TEXT     [default: genomes]                   │
-# │ --savedir                        TEXT     [default: output]                    │
-# │ --symcla-model                   TEXT     [default: sy50]                      │
+# │ --genomedir                      TEXT     [default: input_genomes]             │
+# │ --savedir                        TEXT     [default: output_symcla]             │
 # │ --ncpus                          INTEGER  [default: 16]                        │
 # │ --deltmp          --no-deltmp             [default: deltmp]                    │
 # │ --help                                    Show this message and exit.          │

@@ -302,15 +302,25 @@ def hmmer_results_to_pandas_df() -> None:
             "\\|.*$", "", regex=True
         )
 
-        tblout_hmm_result.to_csv(
-            tbloutfile.replace("_hmmsearch.tblout", "_hits_with_protein_names.tsv"),
-            index=False,
-            sep="\t",
-        )
-
         # Grouping by COG and keeping only the max score
         tblout_hmm_result = (
             tblout_hmm_result.groupby(["taxon_oid", "model"]).max().reset_index()
+        )
+
+        df_hits_with_protein_names_loc = tbloutfile.replace(
+            "_hmmsearch.tblout", "_hits_with_protein_names.tsv"
+        )
+
+        global sym50_hits_with_protein_names_loc
+        # get the dir to tbloutfile and add the sy50_hits_with_protein_names.tsv
+        sym50_hits_with_protein_names_loc = os.path.join(
+            os.path.dirname(tbloutfile), "sy50_hits_with_protein_names.tsv"
+        )
+
+        tblout_hmm_result.to_csv(
+            df_hits_with_protein_names_loc,
+            index=False,
+            sep="\t",
         )
 
         tblout_hmm_result = tblout_hmm_result[["taxon_oid", "model", "score"]]
@@ -439,7 +449,7 @@ def compute_feature_contribution(savedir: str) -> None:
     bitscore_df = pd.read_csv(f"{savedir}/bitscore.tsv", sep="\t", low_memory=False)
     shap_df = pd.read_csv(f"{savedir}/shap.tsv", sep="\t", low_memory=False)
     protein_names_df = pd.read_csv(
-        "/global/cfs/cdirs/nelli/juan/software/symcla/test_output/tmp/sy50_hits_with_protein_names.tsv",
+        sym50_hits_with_protein_names_loc,
         sep="\t",
     )
     # keep only the columns taxon_oid	model	protein_name
@@ -506,9 +516,9 @@ def compute_feature_contribution(savedir: str) -> None:
     )
 
     # remove the columns genome_name_renamed and protein_name_renamed
-    contribution_df.drop(
-        columns=["genome_name_renamed", "protein_name_renamed"], inplace=True
-    )
+    # contribution_df.drop(
+    #     columns=["genome_name_renamed", "protein_name_renamed"], inplace=True
+    # )
 
     contribution_df.to_csv(f"{savedir}/feature_contribution.tsv", sep="\t", index=False)
 
