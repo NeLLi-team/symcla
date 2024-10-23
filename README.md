@@ -122,5 +122,4 @@ apptainer run \
         --genomedir absolute_path_to_dir_with_faa_files \
         --savedir absolute_path_to_output_dir \
         --ncpus 16
-0
 ```
