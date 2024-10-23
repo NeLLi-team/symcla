@@ -9,9 +9,6 @@ ADD data /usr/src/symcla/data
 ADD requirements.txt /usr/src/symcla/requirements.txt
 
 RUN mamba install -c bioconda --file /usr/src/symcla/requirements.txt -y
-# RUN mamba update python
-# RUN mamba update --all
-# RUN mamba install -c bioconda hmmer numpy pandas scikit-learn shap typer xgboost
 RUN mamba clean --all
 
 ENV PATH=${PATH}:/usr/src/symcla
