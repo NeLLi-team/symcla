@@ -107,6 +107,8 @@ Expected results from the test data:
 
 #### Apptainer
 
+Note: The paths to the input genomes and output directory must be absolute.
+
 ```bash
 apptainer pull \
         docker://docker.io/jvillada/symcla:latest
@@ -117,8 +119,8 @@ apptainer run \
         docker://docker.io/jvillada/symcla:latest \
         symcla \
         classify \
-        --genomedir path_to_dir_with_faa_files \
-        --savedir path_to_output_dir \
-        --ncpus 16 \
-        --symcla-model sy50
+        --genomedir absolute_path_to_dir_with_faa_files \
+        --savedir absolute_path_to_output_dir \
+        --ncpus 16
+0
 ```

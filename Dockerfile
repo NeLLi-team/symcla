@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 condaforge/mambaforge:24.3.0-0
+FROM condaforge/mambaforge:24.3.0-0
 
 LABEL maintainer="jvillada@lbl.gov"
 LABEL version="v0.1"
