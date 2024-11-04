@@ -20,7 +20,7 @@ chmod u+x symcla
 Create `conda` environment and install requirements:
 
 ```{bash}
-conda create -c bioconda --name symcla --file requirements.txt
+conda create -c conda-forge -c bioconda --name symcla --file requirements.txt
 ```
 
 ### 💽  Setup data (run only once)
