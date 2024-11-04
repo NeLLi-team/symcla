@@ -107,7 +107,7 @@ Expected results from the test data:
 
 #### Apptainer
 
-Note: The paths to the input genomes and output directory must be absolute.
+⚠️⚠️⚠️ Note: The paths to the input genomes and output directory must be absolute. ⚠️⚠️⚠️
 
 ```bash
 apptainer pull \
