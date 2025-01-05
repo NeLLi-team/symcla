@@ -5,6 +5,7 @@ LABEL version="v0.1"
 LABEL software="symcla: symbiont classifier"
 
 ADD symcla /usr/src/symcla/
+# decompress data_v1.tar.gz and ADD the resultin "data" folder to /usr/src/symcla/data
 ADD data /usr/src/symcla/data
 ADD requirements.txt /usr/src/symcla/requirements.txt
 
