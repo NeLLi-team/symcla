@@ -43,16 +43,12 @@ _______
 conda activate symcla
 ```
 
-```{shell}
-cd symcla/
-```
 
 ### 👷🏻‍♀️  Run the classifier
 
-**Run inside the `symcla/` folder:**
 
 ```{shell}
-./symcla classify --genomedir data/test_genomes --savedir test_output --ncpus 32
+path_to_symcla/symcla classify --genomedir data/test_genomes --savedir test_output --ncpus 32
 ```
 
 ### To get help
@@ -107,19 +103,17 @@ Expected results from the test data:
 
 #### Apptainer
 
-⚠️⚠️⚠️ Note: The paths to the input genomes and output directory must be absolute. ⚠️⚠️⚠️
-
+TODO update the container please
 ```bash
 apptainer pull \
         docker://docker.io/jvillada/symcla:latest
 
 
 apptainer run \
-        --pwd /usr/src/symcla \
         docker://docker.io/jvillada/symcla:latest \
         symcla \
         classify \
-        --genomedir absolute_path_to_dir_with_faa_files \
-        --savedir absolute_path_to_output_dir \
+        --genomedir path_to_dir_with_faa_files \
+        --savedir path_to_output_dir \
         --ncpus 16
 ```
