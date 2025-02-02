@@ -59,7 +59,7 @@ def init_message_classify() -> None:
 
 def extract_data() -> None:
     typer.secho("Extracting required data", fg=typer.colors.BRIGHT_GREEN)
-    data_tar = tarfile.open("data_v1.tar.gz")
+    data_tar = tarfile.open(f"{os.path.dirname(os.path.abspath(__file__))}/data_v1.tar.gz")
     data_tar.extractall(".")
     data_tar.close()
     typer.secho("[OK] Data extracted\n", fg=typer.colors.BRIGHT_MAGENTA)
@@ -196,7 +196,7 @@ def run_hmmsearch(symcla_model: str, ncpus: int) -> None:
         data_folder / f"hmms_symcla/{symcla_model}.hmm",
         # f"data/hmms_symcla/{symcla_model}.hmm",
         tmp_dir_path + "/merged_genomes.faa",
-    ]
+        ]
 
     subprocess.run(cmd_search, stdout=subprocess.PIPE)
 
@@ -207,7 +207,7 @@ def run_hmmsearch(symcla_model: str, ncpus: int) -> None:
 
 
 def run_hmmsearch_uni56(ncpus: int) -> None:
-    hmmfile = "data/hmms_uni56/uni56.hmm"
+    hmmfile = f"{os.path.dirname(os.path.abspath(__file__))}/data/hmms_uni56/uni56.hmm"
     cmd_search = [
         "hmmsearch",
         "--cpu",
@@ -218,7 +218,7 @@ def run_hmmsearch_uni56(ncpus: int) -> None:
         "--cut_ga",
         hmmfile,
         tmp_dir_path + "/merged_genomes.faa",
-    ]
+        ]
     subprocess.run(cmd_search, stdout=subprocess.PIPE)
 
     typer.secho(
@@ -232,13 +232,13 @@ def save_list_of_models(symcla_model: str) -> None:
         "Saving list of models for each hmm model file", fg=typer.colors.BRIGHT_GREEN
     )
 
-    list_of_hmm_models_files = [f"data/hmms_symcla/{symcla_model}.hmm"] + [
-        "data/hmms_uni56/uni56.hmm"
+    list_of_hmm_models_files = [f"{os.path.dirname(os.path.abspath(__file__))}/data/hmms_symcla/{symcla_model}.hmm"] + [
+        f"{os.path.dirname(os.path.abspath(__file__))}/data/hmms_uni56/uni56.hmm"
     ]
 
     for hmmfile in list_of_hmm_models_files:
         models_list_file_path = (
-            tmp_dir_path + "/" + hmmfile.split("/")[-1].split(".")[0] + "_models.list"
+                tmp_dir_path + "/" + hmmfile.split("/")[-1].split(".")[0] + "_models.list"
         )
         with open(models_list_file_path, "w") as output_models_list_file:
             with open(hmmfile, "r") as my_hmmfile:
@@ -276,9 +276,13 @@ def hmmer_results_to_pandas_df() -> None:
     )
 
     for tbloutfile in list_of_tblout_hmmsearch_output_files:
-        tblout_hmm_result = pd.read_csv(
-            tbloutfile, header=None, sep=r"\s+", comment="#", usecols=[0, 2, 4, 5]
-        )
+        try:
+            tblout_hmm_result = pd.read_csv(
+                tbloutfile, header=None, sep=r"\s+", comment="#", usecols=[0, 2, 4, 5]
+            )
+        except Exception as e:
+            tblout_hmm_result = pd.DataFrame(columns=[0, 2, 4, 5])
+
 
         models_names = pd.read_csv(
             tbloutfile.replace("_hmmsearch.tblout", "_models.list"),
@@ -367,7 +371,7 @@ def hmmer_results_to_pandas_df() -> None:
         tblout_hmm_result = tblout_hmm_result[
             ["taxon_oid"]
             + [col for col in tblout_hmm_result.columns if col != "taxon_oid"]
-        ]
+            ]
         # Save output
         tblout_hmm_result.to_csv(
             tbloutfile.replace("_hmmsearch.tblout", "_hits_all_models.tsv"),
@@ -390,7 +394,7 @@ def classify_genomes(symcla_model: str, savedir: str) -> None:
         tmp_dir_path + f"/{symcla_model}_hits_all_models.tsv",
         sep="\t",
         low_memory=False,
-    )
+        )
     all_tblout_df.to_csv(f"{savedir}/bitscore.tsv", sep="\t", index=False)
 
     features_gt0 = all_tblout_df.drop(["taxon_oid"], axis=1).apply(
@@ -422,7 +426,7 @@ def classify_genomes(symcla_model: str, savedir: str) -> None:
     # all_tblout_df=np.array(all_tblout_df)
 
     xgb_model = xgb.XGBRegressor()
-    xgb_model.load_model(f"data/ml_models/{symcla_model}.json")
+    xgb_model.load_model(f"{os.path.dirname(os.path.abspath(__file__))}/data/ml_models/{symcla_model}.json")
     symcla_prediction = xgb_model.predict(all_tblout_df)
     predictions_df = pd.DataFrame({"taxon_oid": taxon_oid_list})
     predictions_df["symcla_score"] = symcla_prediction
@@ -438,7 +442,7 @@ def classify_genomes(symcla_model: str, savedir: str) -> None:
     shap_df["taxon_oid"] = taxon_oid_list
     shap_df = shap_df[
         ["taxon_oid"] + [col for col in shap_df.columns if col != "taxon_oid"]
-    ]
+        ]
     shap_df.to_csv(f"{savedir}/shap.tsv", sep="\t", index=False)
     typer.secho("[OK] Genomes classified\n", fg=typer.colors.BRIGHT_MAGENTA)
 
@@ -470,7 +474,7 @@ def compute_feature_contribution(savedir: str) -> None:
     )
 
     features_annotation_df = pd.read_csv(
-        "data/feature_annotation_majority_for_symcla.tsv", sep="\t"
+        f"{os.path.dirname(os.path.abspath(__file__))}/data/feature_annotation_majority_for_symcla.tsv", sep="\t"
     )
 
     contribution_df = contribution_df.merge(
@@ -546,7 +550,7 @@ def save_final_results(savedir: str) -> None:
         tmp_dir_path + "/uni56_presence.tsv",
         sep="\t",
         usecols=["taxon_oid", "completeness_UNI56"],
-    )
+        )
     total_models_results = pd.read_csv(
         tmp_dir_path + "/total_models_per_genome.tsv", sep="\t"
     )
@@ -610,10 +614,10 @@ def build():
 
 @app.command()
 def classify(
-    genomedir: str = "input_genomes",
-    savedir: str = "output_symcla",
-    ncpus: int = 16,
-    deltmp: bool = True,
+        genomedir: str = "input_genomes",
+        savedir: str = "output_symcla",
+        ncpus: int = 16,
+        deltmp: bool = True,
 ):
     symcla_model: str = "sy50"
 
@@ -622,7 +626,8 @@ def classify(
     # run pipeline
     greetings()
     init_message_classify()
-
+    savedir=os.path.abspath(savedir)
+    genomedir=os.path.abspath(genomedir)
     create_output_dir(savedir=savedir)
 
     global tmp_dir_path
