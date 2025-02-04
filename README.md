@@ -103,7 +103,6 @@ Expected results from the test data:
 
 #### Apptainer
 
-TODO update the container please
 ```bash
 apptainer pull \
         docker://docker.io/jvillada/symcla:latest
