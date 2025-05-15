@@ -2,7 +2,7 @@
 ![GitHub License](https://img.shields.io/github/license/NeLLi-team/symcla)
 
 
-# ⚠️⚠️⚠️ `symcla` is being archived and its development will continue as part of the [`symclatrom`](https://github.com/NeLLi-team/symclatron) project ⚠️⚠️⚠️
+# ⚠️⚠️⚠️ `symcla` is being archived and its development will continue as part of the [`symclatron`](https://github.com/NeLLi-team/symclatron) project ⚠️⚠️⚠️
 
 # symcla: symbiont classifier
 
