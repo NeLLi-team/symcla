@@ -57,11 +57,31 @@ def init_message_classify() -> None:
     return typer.echo(message)
 
 
+def _is_within_directory(directory: str, target: str) -> bool:
+    """Return True if the target path is located within the directory."""
+
+    abs_directory = os.path.abspath(directory)
+    abs_target = os.path.abspath(target)
+    return os.path.commonpath([abs_directory, abs_target]) == abs_directory
+
+
+def _safe_extract(tar: tarfile.TarFile, path: str = ".") -> None:
+    """Safely extract tar files by guarding against path traversal."""
+
+    for member in tar.getmembers():
+        member_path = os.path.join(path, member.name)
+        if not _is_within_directory(path, member_path):
+            raise RuntimeError(
+                f"Attempted Path Traversal in Tar File for member '{member.name}'"
+            )
+    tar.extractall(path)
+
+
 def extract_data() -> None:
     typer.secho("Extracting required data", fg=typer.colors.BRIGHT_GREEN)
-    data_tar = tarfile.open(f"{os.path.dirname(os.path.abspath(__file__))}/data_v1.tar.gz")
-    data_tar.extractall(".")
-    data_tar.close()
+    tar_path = Path(__file__).resolve().with_name("data_v1.tar.gz")
+    with tarfile.open(tar_path) as data_tar:
+        _safe_extract(data_tar, ".")
     typer.secho("[OK] Data extracted\n", fg=typer.colors.BRIGHT_MAGENTA)
 
 
